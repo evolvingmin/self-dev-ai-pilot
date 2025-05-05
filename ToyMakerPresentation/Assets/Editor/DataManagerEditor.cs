@@ -16,6 +16,7 @@ public class DataManagerEditor : EditorWindow
     private string newValue = "";
     private string newCategory = "";
     private string selectedCategory = "";
+    private object cachedNewItem;
 
     [MenuItem("Window/Data Manager Editor")]
     public static void ShowWindow()
@@ -85,19 +86,194 @@ public class DataManagerEditor : EditorWindow
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("ID: " + entry.Key, GUILayout.Width(100));
-                string value = JsonConvert.SerializeObject(entry.Value);
-                string newValue = GUILayout.TextField(value);
 
-                if (newValue != value)
+                // entry.Value가 클래스나 구조체인지 확인
+                var entryType = entry.Value.GetType();
+                if (entryType.IsClass || entryType.IsValueType && !entryType.IsPrimitive)
                 {
-                    try
+                    GUILayout.BeginVertical();
+
+                    // 클래스의 프로퍼티를 순회
+                    foreach (var property in entryType.GetProperties())
                     {
-                        object parsedValue = JsonConvert.DeserializeObject(newValue, entry.Value.GetType());
-                        currentData[entry.Key] = parsedValue;
+                        if (!property.CanRead || !property.CanWrite) continue; // 읽기/쓰기 가능한 프로퍼티만 처리
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label(property.Name, GUILayout.Width(100));
+
+                        var propertyValue = property.GetValue(entry.Value);
+                        if (propertyValue is int intValue)
+                        {
+                            string newValue = GUILayout.TextField(intValue.ToString());
+                            if (int.TryParse(newValue, out int parsedValue) && parsedValue != intValue)
+                            {
+                                property.SetValue(entry.Value, parsedValue);
+                            }
+                        }
+                        else if (propertyValue is float floatValue)
+                        {
+                            string newValue = GUILayout.TextField(floatValue.ToString());
+                            if (float.TryParse(newValue, out float parsedValue) && parsedValue != floatValue)
+                            {
+                                property.SetValue(entry.Value, parsedValue);
+                            }
+                        }
+                        else if (propertyValue is string stringValue)
+                        {
+                            string newValue = GUILayout.TextField(stringValue);
+                            if (newValue != stringValue)
+                            {
+                                property.SetValue(entry.Value, newValue);
+                            }
+                        }
+                        else if (propertyValue is Enum enumValue)
+                        {
+                            string[] enumNames = Enum.GetNames(enumValue.GetType());
+                            int selectedIndex = Array.IndexOf(enumNames, enumValue.ToString());
+                            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
+                            if (newIndex != selectedIndex)
+                            {
+                                property.SetValue(entry.Value, Enum.Parse(enumValue.GetType(), enumNames[newIndex]));
+                            }
+                        }
+                        else
+                        {
+                            string value = JsonConvert.SerializeObject(propertyValue);
+                            string newValue = GUILayout.TextField(value);
+                            if (newValue != value)
+                            {
+                                try
+                                {
+                                    object parsedValue = JsonConvert.DeserializeObject(newValue, propertyValue.GetType());
+                                    property.SetValue(entry.Value, parsedValue);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.LogError("Failed to parse value: " + ex.Message);
+                                }
+                            }
+                        }
+
+                        GUILayout.EndHorizontal();
                     }
-                    catch (Exception ex)
+
+                    // 클래스의 필드를 순회
+                    foreach (var field in entryType.GetFields())
                     {
-                        Debug.LogError("Failed to parse value: " + ex.Message);
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label(field.Name, GUILayout.Width(100));
+
+                        var fieldValue = field.GetValue(entry.Value);
+                        if (fieldValue is int intValue)
+                        {
+                            string newValue = GUILayout.TextField(intValue.ToString());
+                            if (int.TryParse(newValue, out int parsedValue) && parsedValue != intValue)
+                            {
+                                field.SetValue(entry.Value, parsedValue);
+                            }
+                        }
+                        else if (fieldValue is float floatValue)
+                        {
+                            string newValue = GUILayout.TextField(floatValue.ToString());
+                            if (float.TryParse(newValue, out float parsedValue) && parsedValue != floatValue)
+                            {
+                                field.SetValue(entry.Value, parsedValue);
+                            }
+                        }
+                        else if (fieldValue is string stringValue)
+                        {
+                            string newValue = GUILayout.TextField(stringValue);
+                            if (newValue != stringValue)
+                            {
+                                field.SetValue(entry.Value, newValue);
+                            }
+                        }
+                        else if (fieldValue is Enum enumValue)
+                        {
+                            string[] enumNames = Enum.GetNames(enumValue.GetType());
+                            int selectedIndex = Array.IndexOf(enumNames, enumValue.ToString());
+                            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
+                            if (newIndex != selectedIndex)
+                            {
+                                field.SetValue(entry.Value, Enum.Parse(enumValue.GetType(), enumNames[newIndex]));
+                            }
+                        }
+                        else
+                        {
+                            string value = JsonConvert.SerializeObject(fieldValue);
+                            string newValue = GUILayout.TextField(value);
+                            if (newValue != value)
+                            {
+                                try
+                                {
+                                    object parsedValue = JsonConvert.DeserializeObject(newValue, fieldValue.GetType());
+                                    field.SetValue(entry.Value, parsedValue);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.LogError("Failed to parse value: " + ex.Message);
+                                }
+                            }
+                        }
+
+                        GUILayout.EndHorizontal();
+                    }
+
+                    GUILayout.EndVertical();
+                }
+                else
+                {
+                    // 기존 단일 타입 처리 로직 유지
+                    if (entry.Value is int intValue)
+                    {
+                        string newValue = GUILayout.TextField(intValue.ToString());
+                        if (int.TryParse(newValue, out int parsedValue) && parsedValue != intValue)
+                        {
+                            currentData[entry.Key] = parsedValue;
+                        }
+                    }
+                    else if (entry.Value is float floatValue)
+                    {
+                        string newValue = GUILayout.TextField(floatValue.ToString());
+                        if (float.TryParse(newValue, out float parsedValue) && parsedValue != floatValue)
+                        {
+                            currentData[entry.Key] = parsedValue;
+                        }
+                    }
+                    else if (entry.Value is string stringValue)
+                    {
+                        string newValue = GUILayout.TextField(stringValue);
+                        if (newValue != stringValue)
+                        {
+                            currentData[entry.Key] = newValue;
+                        }
+                    }
+                    else if (entry.Value is Enum enumValue)
+                    {
+                        string[] enumNames = Enum.GetNames(enumValue.GetType());
+                        int selectedIndex = Array.IndexOf(enumNames, enumValue.ToString());
+                        int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
+                        if (newIndex != selectedIndex)
+                        {
+                            currentData[entry.Key] = Enum.Parse(enumValue.GetType(), enumNames[newIndex]);
+                        }
+                    }
+                    else
+                    {
+                        string value = JsonConvert.SerializeObject(entry.Value);
+                        string newValue = GUILayout.TextField(value);
+                        if (newValue != value)
+                        {
+                            try
+                            {
+                                object parsedValue = JsonConvert.DeserializeObject(newValue, entry.Value.GetType());
+                                currentData[entry.Key] = parsedValue;
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogError("Failed to parse value: " + ex.Message);
+                            }
+                        }
                     }
                 }
 
@@ -120,28 +296,64 @@ public class DataManagerEditor : EditorWindow
             GUILayout.Space(10);
 
             GUILayout.Label("Add New Item", EditorStyles.boldLabel);
-            newKey = GUILayout.TextField(newKey, GUILayout.Width(100));
-            newValue = GUILayout.TextField(newValue);
 
-            if (GUILayout.Button("Add Item"))
+            if (!string.IsNullOrEmpty(selectedCategory))
             {
-                if (int.TryParse(newKey, out int key))
+                var categoryType = dataManager.GetSupportedDataType(selectedCategory);
+                if (categoryType != null)
                 {
-                    try
+                    if (cachedNewItem == null || cachedNewItem.GetType() != categoryType)
                     {
-                        object parsedValue = JsonConvert.DeserializeObject(newValue);
-                        currentData[key] = parsedValue;
-                        newKey = "";
-                        newValue = "";
+                        cachedNewItem = Activator.CreateInstance(categoryType);
                     }
-                    catch (Exception ex)
+                    var newItem = cachedNewItem;
+
+                    foreach (var property in categoryType.GetProperties())
                     {
-                        Debug.LogError("Failed to add item: " + ex.Message);
+                        if (!property.CanWrite || property.Name == "Id") continue; // Skip Id property
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label(property.Name, GUILayout.Width(100));
+
+                        if (property.PropertyType == typeof(int))
+                        {
+                            string input = GUILayout.TextField(property.GetValue(newItem)?.ToString() ?? "0");
+                            if (int.TryParse(input, out int value))
+                            {
+                                property.SetValue(newItem, value);
+                            }
+                        }
+                        else if (property.PropertyType == typeof(string))
+                        {
+                            string tempInput = property.GetValue(newItem)?.ToString() ?? string.Empty;
+                            string input = GUILayout.TextField(tempInput);
+                            if (input != tempInput)
+                            {
+                                property.SetValue(newItem, input);
+                            }
+                        }
+                        else if (property.PropertyType.IsEnum)
+                        {
+                            string[] enumNames = Enum.GetNames(property.PropertyType);
+                            int selectedIndex = Array.IndexOf(enumNames, property.GetValue(newItem)?.ToString() ?? enumNames[0]);
+                            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
+                            property.SetValue(newItem, Enum.Parse(property.PropertyType, enumNames[newIndex]));
+                        }
+                        // Add more type handling as needed
+
+                        GUILayout.EndHorizontal();
                     }
-                }
-                else
-                {
-                    Debug.LogWarning("Invalid key format. Key must be an integer.");
+
+                    if (GUILayout.Button("Add Item"))
+                    {
+                        int newId = currentData.Keys.Count > 0 ? currentData.Keys.Max() + 1 : 1;
+                        var idProperty = categoryType.GetProperty("Id");
+                        if (idProperty != null && idProperty.CanWrite)
+                        {
+                            idProperty.SetValue(newItem, newId);
+                        }
+                        currentData[newId] = newItem;
+                    }
                 }
             }
 
