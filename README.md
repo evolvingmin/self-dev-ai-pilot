@@ -63,3 +63,7 @@ This project is an experimental journey into developing a game prototype using c
 ```
 
 이 데이터는 `AppData` 경로에 저장된 것으로 가정하고 작업하고 있습니다.
+
+## 앞으로의 계획
+
+이 프로젝트는 프로토타이핑 게임을 만들면서 필요한 유틸리티나 구성을 만들고 보완하는 과정을 거칠 것입니다. 이를 통해 게임 개발의 다양한 측면을 탐구하고, AI 도구를 활용하여 효율성을 극대화하는 방법을 실험할 것입니다.
