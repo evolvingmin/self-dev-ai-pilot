@@ -16,7 +16,6 @@ public class DataManager
     public DataManager()
     {
         LoadSupportedDataTypes();
-        //LoadData("game_data.json");
     }
 
     private string ResolveFilePath(string fileName)
@@ -115,11 +114,6 @@ public class DataManager
                 supportedTypes[type.Name] = type;
             }
         }
-    }
-
-    public IEnumerable<Type> GetSupportedDataTypes()
-    {
-        return supportedTypes.Values;
     }
 
     public Type GetSupportedDataType(string typeString)
