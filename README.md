@@ -1,8 +1,8 @@
 # self-dev-ai-pilot
 
-Copilot 기반으로 시작하는 1인 개발 프로젝트입니다. 현재 내 개발 역량과 최신 AI 도구들을 조합하여, 어디까지 구현이 가능한지 실험하는 목적의 저장소입니다.
+이 프로젝트는 최신 AI 기술을 활용하여 게임 프로토타입을 개발하는 과정을 탐구하는 실험적 시도입니다. Copilot과 같은 AI 도구를 통해 개발 속도를 높이고, 개인의 역량을 극대화하여 창의적인 아이디어를 구현하는 데 초점을 맞추고 있습니다. 이를 통해 현재 나의 개발 능력을 객관적으로 평가하고, AI와 협업하여 어디까지 발전할 수 있는지 탐구하는 것이 목표입니다.
 
-This is a solo development project started using Copilot, testing how far I can go by combining my own coding skills and modern AI tools.
+This project is an experimental journey into developing a game prototype using cutting-edge AI tools like Copilot. The focus is on accelerating development, maximizing individual capabilities, and bringing creative ideas to life. Through this, the goal is to objectively assess my current development skills and explore how far I can go by collaborating with AI.
 
 ## JSON 데이터 에디터
 
