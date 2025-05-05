@@ -23,7 +23,7 @@ This is a solo development project started using Copilot, testing how far I can 
 
 ### 현재 데이터 파일
 
-현재 JSON 데이터는 `c:\Users\Evolv\AppData\LocalLow\DefaultCompany\ToyMakerPresentation\game_data.json` 경로에 저장되어 있으며, 다음과 같은 구조를 가지고 있습니다:
+현재 JSON 데이터는 `c:\Users\{유저명}\AppData\LocalLow\DefaultCompany\ToyMakerPresentation\game_data.json` 경로에 저장되어 있으며, 다음과 같은 구조를 가지고 있습니다:
 
 ```json
 {
