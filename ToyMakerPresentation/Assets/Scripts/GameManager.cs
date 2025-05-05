@@ -6,8 +6,11 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private List<MonoBehaviour> gameModules; // IGameModule을 구현한 모듈들을 인스펙터에서 연결
 
+    private DataManager dataManager;
+
     void Start()
     {
+        dataManager = new DataManager();
         InitializeGame();
     }
 
@@ -26,5 +29,10 @@ public class GameManager : MonoBehaviour
         }
 
         Debug.Log("Game Initialized");
+    }
+
+    public DataManager GetDataManager()
+    {
+        return dataManager;
     }
 }

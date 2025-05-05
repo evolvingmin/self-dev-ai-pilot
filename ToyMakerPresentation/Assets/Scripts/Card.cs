@@ -1,3 +1,4 @@
+using ToyProject.Data;
 using UnityEngine;
 
 public class Card : MonoBehaviour
@@ -6,10 +7,15 @@ public class Card : MonoBehaviour
     public int attack;
     public int defense;
 
-    public void Initialize(string name, int atk, int def)
+    public void Initialize(int id, DataManager dataManager)
     {
-        cardName = name;
-        attack = atk;
-        defense = def;
+        // Assuming dataManager has methods to get card details
+        // For example: dataManager.GetCardDetails(name);
+        // Here we just set the values directly for simplicity
+        var cardSpec = dataManager.GetData<CardSpec>(id); 
+        cardName = cardSpec.cardName;
+        defense = cardSpec.defense;
+        attack = cardSpec.attack;
+        Debug.Log($"Initialized card: {cardName} with Attack: {attack} and Defense: {defense}");
     }
 }

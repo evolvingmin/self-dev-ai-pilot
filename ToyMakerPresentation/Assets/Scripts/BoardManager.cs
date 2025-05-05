@@ -7,20 +7,33 @@ public class BoardManager : MonoBehaviour, IGameModule
     public GameObject cardPrefab; // 카드 프리팹
     public Transform boardOrigin; // 보드 시작 위치
     public float tileSpacing = 1.5f; // 타일 간 간격
+    private DataManager dataManager; // DataManager 참조 제거
 
     public void InitializeModule()
     {
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager != null)
+        {
+            dataManager = gameManager.GetDataManager();
+        }
+        else
+        {
+            Debug.LogError("GameManager not found in the scene.");
+        }
+
         board = new GameObject[boardSize, boardSize];
         Debug.Log("Board Initialized");
     }
 
-    public void PlaceCard(int x, int y)
+    public void PlaceCard(int x, int y, int cardKey)
     {
         if (IsValidPlacement(x, y))
         {
             Vector3 position = GetTilePosition(x, y);
-            GameObject card = Instantiate(cardPrefab, position, Quaternion.identity, boardOrigin);
-            board[x, y] = card;
+            GameObject cardObject = Instantiate(cardPrefab, position, Quaternion.identity, boardOrigin);
+            Card card = cardObject.GetComponent<Card>();
+            card.Initialize(cardKey, dataManager);
+            board[x, y] = cardObject;
         }
     }
 
