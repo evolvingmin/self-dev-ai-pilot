@@ -1,10 +1,5 @@
 namespace ToyProject.Data
 {
-    public interface IData
-    {
-        public int Id { get; }
-    }
-
     public class CardSpec : IData
     {
         public int Id { get; set; }

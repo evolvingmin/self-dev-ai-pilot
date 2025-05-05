@@ -1,4 +1,7 @@
-public interface IGameModule
+namespace ToyProject
 {
-    void InitializeModule();
+    public interface IGameModule
+    {
+        void InitializeModule();
+    }
 }

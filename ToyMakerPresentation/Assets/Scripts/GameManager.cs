@@ -1,38 +1,41 @@
-using UnityEngine;
-using System.Collections.Generic;
-
-public class GameManager : MonoBehaviour
+namespace ToyProject
 {
-    [SerializeField]
-    private List<MonoBehaviour> gameModules; // IGameModule을 구현한 모듈들을 인스펙터에서 연결
+    using UnityEngine;
+    using System.Collections.Generic;
 
-    private DataManager dataManager;
-
-    void Start()
+    public class GameManager : MonoBehaviour
     {
-        dataManager = new DataManager();
-        InitializeGame();
-    }
+        [SerializeField]
+        private List<MonoBehaviour> gameModules; // IGameModule을 구현한 모듈들을 인스펙터에서 연결
 
-    private void InitializeGame()
-    {
-        foreach (var module in gameModules)
+        private DataManager dataManager;
+
+        void Start()
         {
-            if (module is IGameModule gameModule)
-            {
-                gameModule.InitializeModule();
-            }
-            else
-            {
-                Debug.LogError($"{module.name} does not implement IGameModule.");
-            }
+            dataManager = new DataManager();
+            InitializeGame();
         }
 
-        Debug.Log("Game Initialized");
-    }
+        private void InitializeGame()
+        {
+            foreach (var module in gameModules)
+            {
+                if (module is IGameModule gameModule)
+                {
+                    gameModule.InitializeModule();
+                }
+                else
+                {
+                    Debug.LogError($"{module.name} does not implement IGameModule.");
+                }
+            }
 
-    public DataManager GetDataManager()
-    {
-        return dataManager;
+            Debug.Log("Game Initialized");
+        }
+
+        public DataManager GetDataManager()
+        {
+            return dataManager;
+        }
     }
 }
