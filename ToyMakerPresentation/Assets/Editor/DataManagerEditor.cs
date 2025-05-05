@@ -17,6 +17,7 @@ public class DataManagerEditor : EditorWindow
     private string newCategory = "";
     private string selectedCategory = "";
     private object cachedNewItem;
+    private string searchQuery = "";
 
     [MenuItem("Window/Data Manager Editor")]
     public static void ShowWindow()
@@ -80,150 +81,63 @@ public class DataManagerEditor : EditorWindow
         {
             GUILayout.Label($"Editing Category: {selectedCategory}", EditorStyles.boldLabel);
 
+            GUILayout.Label("Search Items", EditorStyles.boldLabel);
+            searchQuery = GUILayout.TextField(searchQuery);
+
+            GUILayout.Space(10);
+
+            IEnumerable<KeyValuePair<int, object>> filteredData = currentData;
+            if (!string.IsNullOrEmpty(searchQuery))
+            {
+                filteredData = currentData.Where(entry =>
+                {
+                    var entryType = entry.Value.GetType();
+                    foreach (var property in entryType.GetProperties())
+                    {
+                        if (property.CanRead && property.GetValue(entry.Value)?.ToString().Contains(searchQuery, StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+            }
+
             scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(200));
-            var keysToRemove = new List<int>(); // 삭제할 키를 추적합니다.
-            foreach (var entry in currentData.ToList()) // ToList()로 복사본을 순회합니다.
+            var keysToRemove = new List<int>();
+            foreach (var entry in filteredData.ToList())
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("ID: " + entry.Key, GUILayout.Width(100));
 
-                // entry.Value가 클래스나 구조체인지 확인
                 var entryType = entry.Value.GetType();
                 if (entryType.IsClass || entryType.IsValueType && !entryType.IsPrimitive)
                 {
                     GUILayout.BeginVertical();
 
-                    // 클래스의 프로퍼티를 순회
                     foreach (var property in entryType.GetProperties())
                     {
-                        if (!property.CanRead || !property.CanWrite) continue; // 읽기/쓰기 가능한 프로퍼티만 처리
+                        if (!property.CanWrite || property.Name == "Id") continue;
 
-                        GUILayout.BeginHorizontal();
-                        GUILayout.Label(property.Name, GUILayout.Width(100));
+                        var propertyValue = property.GetValue(entry.Value)?.ToString() ?? string.Empty;
 
-                        var propertyValue = property.GetValue(entry.Value);
-                        if (propertyValue is int intValue)
+                        if (!string.IsNullOrEmpty(searchQuery) && propertyValue.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
                         {
-                            string newValue = GUILayout.TextField(intValue.ToString());
-                            if (int.TryParse(newValue, out int parsedValue) && parsedValue != intValue)
-                            {
-                                property.SetValue(entry.Value, parsedValue);
-                            }
-                        }
-                        else if (propertyValue is float floatValue)
-                        {
-                            string newValue = GUILayout.TextField(floatValue.ToString());
-                            if (float.TryParse(newValue, out float parsedValue) && parsedValue != floatValue)
-                            {
-                                property.SetValue(entry.Value, parsedValue);
-                            }
-                        }
-                        else if (propertyValue is string stringValue)
-                        {
-                            string newValue = GUILayout.TextField(stringValue);
-                            if (newValue != stringValue)
-                            {
-                                property.SetValue(entry.Value, newValue);
-                            }
-                        }
-                        else if (propertyValue is Enum enumValue)
-                        {
-                            string[] enumNames = Enum.GetNames(enumValue.GetType());
-                            int selectedIndex = Array.IndexOf(enumNames, enumValue.ToString());
-                            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
-                            if (newIndex != selectedIndex)
-                            {
-                                property.SetValue(entry.Value, Enum.Parse(enumValue.GetType(), enumNames[newIndex]));
-                            }
+                            GUI.backgroundColor = Color.yellow; // Highlight matching property
                         }
                         else
                         {
-                            string value = JsonConvert.SerializeObject(propertyValue);
-                            string newValue = GUILayout.TextField(value);
-                            if (newValue != value)
-                            {
-                                try
-                                {
-                                    object parsedValue = JsonConvert.DeserializeObject(newValue, propertyValue.GetType());
-                                    property.SetValue(entry.Value, parsedValue);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.LogError("Failed to parse value: " + ex.Message);
-                                }
-                            }
+                            GUI.backgroundColor = Color.white; // Reset background color
                         }
 
-                        GUILayout.EndHorizontal();
+                        DrawField(property.Name, entry.Value, property);
                     }
 
-                    // 클래스의 필드를 순회
-                    foreach (var field in entryType.GetFields())
-                    {
-                        GUILayout.BeginHorizontal();
-                        GUILayout.Label(field.Name, GUILayout.Width(100));
-
-                        var fieldValue = field.GetValue(entry.Value);
-                        if (fieldValue is int intValue)
-                        {
-                            string newValue = GUILayout.TextField(intValue.ToString());
-                            if (int.TryParse(newValue, out int parsedValue) && parsedValue != intValue)
-                            {
-                                field.SetValue(entry.Value, parsedValue);
-                            }
-                        }
-                        else if (fieldValue is float floatValue)
-                        {
-                            string newValue = GUILayout.TextField(floatValue.ToString());
-                            if (float.TryParse(newValue, out float parsedValue) && parsedValue != floatValue)
-                            {
-                                field.SetValue(entry.Value, parsedValue);
-                            }
-                        }
-                        else if (fieldValue is string stringValue)
-                        {
-                            string newValue = GUILayout.TextField(stringValue);
-                            if (newValue != stringValue)
-                            {
-                                field.SetValue(entry.Value, newValue);
-                            }
-                        }
-                        else if (fieldValue is Enum enumValue)
-                        {
-                            string[] enumNames = Enum.GetNames(enumValue.GetType());
-                            int selectedIndex = Array.IndexOf(enumNames, enumValue.ToString());
-                            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
-                            if (newIndex != selectedIndex)
-                            {
-                                field.SetValue(entry.Value, Enum.Parse(enumValue.GetType(), enumNames[newIndex]));
-                            }
-                        }
-                        else
-                        {
-                            string value = JsonConvert.SerializeObject(fieldValue);
-                            string newValue = GUILayout.TextField(value);
-                            if (newValue != value)
-                            {
-                                try
-                                {
-                                    object parsedValue = JsonConvert.DeserializeObject(newValue, fieldValue.GetType());
-                                    field.SetValue(entry.Value, parsedValue);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.LogError("Failed to parse value: " + ex.Message);
-                                }
-                            }
-                        }
-
-                        GUILayout.EndHorizontal();
-                    }
-
+                    GUI.backgroundColor = Color.white; // Reset background color after processing all properties
                     GUILayout.EndVertical();
                 }
                 else
                 {
-                    // 기존 단일 타입 처리 로직 유지
                     if (entry.Value is int intValue)
                     {
                         string newValue = GUILayout.TextField(intValue.ToString());
@@ -279,13 +193,14 @@ public class DataManagerEditor : EditorWindow
 
                 if (GUILayout.Button("Delete", GUILayout.Width(60)))
                 {
-                    keysToRemove.Add(entry.Key); // 삭제할 키를 추가합니다.
+                    keysToRemove.Add(entry.Key);
                 }
 
                 GUILayout.EndHorizontal();
+
+                GUILayout.Space(10); // Add vertical spacing between items
             }
 
-            // 루프가 끝난 후 삭제 작업을 수행합니다.
             foreach (var key in keysToRemove)
             {
                 currentData.Remove(key);
@@ -308,41 +223,7 @@ public class DataManagerEditor : EditorWindow
                     }
                     var newItem = cachedNewItem;
 
-                    foreach (var property in categoryType.GetProperties())
-                    {
-                        if (!property.CanWrite || property.Name == "Id") continue; // Skip Id property
-
-                        GUILayout.BeginHorizontal();
-                        GUILayout.Label(property.Name, GUILayout.Width(100));
-
-                        if (property.PropertyType == typeof(int))
-                        {
-                            string input = GUILayout.TextField(property.GetValue(newItem)?.ToString() ?? "0");
-                            if (int.TryParse(input, out int value))
-                            {
-                                property.SetValue(newItem, value);
-                            }
-                        }
-                        else if (property.PropertyType == typeof(string))
-                        {
-                            string tempInput = property.GetValue(newItem)?.ToString() ?? string.Empty;
-                            string input = GUILayout.TextField(tempInput);
-                            if (input != tempInput)
-                            {
-                                property.SetValue(newItem, input);
-                            }
-                        }
-                        else if (property.PropertyType.IsEnum)
-                        {
-                            string[] enumNames = Enum.GetNames(property.PropertyType);
-                            int selectedIndex = Array.IndexOf(enumNames, property.GetValue(newItem)?.ToString() ?? enumNames[0]);
-                            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
-                            property.SetValue(newItem, Enum.Parse(property.PropertyType, enumNames[newIndex]));
-                        }
-                        // Add more type handling as needed
-
-                        GUILayout.EndHorizontal();
-                    }
+                    DrawFieldsForObject(newItem);
 
                     if (GUILayout.Button("Add Item"))
                     {
@@ -365,6 +246,59 @@ public class DataManagerEditor : EditorWindow
         else
         {
             GUILayout.Label("No category selected.", EditorStyles.helpBox);
+        }
+    }
+
+    private void DrawField(string label, object target, System.Reflection.PropertyInfo property)
+    {
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(label, GUILayout.Width(100));
+
+        var propertyValue = property.GetValue(target);
+        if (property.PropertyType == typeof(int))
+        {
+            string input = GUILayout.TextField(propertyValue?.ToString() ?? "0");
+            if (int.TryParse(input, out int value))
+            {
+                property.SetValue(target, value);
+            }
+        }
+        else if (property.PropertyType == typeof(float))
+        {
+            string input = GUILayout.TextField(propertyValue?.ToString() ?? "0.0");
+            if (float.TryParse(input, out float value))
+            {
+                property.SetValue(target, value);
+            }
+        }
+        else if (property.PropertyType == typeof(string))
+        {
+            string input = GUILayout.TextField(propertyValue?.ToString() ?? string.Empty);
+            if (input != propertyValue?.ToString())
+            {
+                property.SetValue(target, input);
+            }
+        }
+        else if (property.PropertyType.IsEnum)
+        {
+            string[] enumNames = Enum.GetNames(property.PropertyType);
+            int selectedIndex = Array.IndexOf(enumNames, propertyValue?.ToString() ?? enumNames[0]);
+            int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames);
+            if (newIndex != selectedIndex)
+            {
+                property.SetValue(target, Enum.Parse(property.PropertyType, enumNames[newIndex]));
+            }
+        }
+        GUILayout.EndHorizontal();
+    }
+
+    private void DrawFieldsForObject(object target)
+    {
+        var type = target.GetType();
+        foreach (var property in type.GetProperties())
+        {
+            if (!property.CanWrite || property.Name == "Id") continue;
+            DrawField(property.Name, target, property);
         }
     }
 }
