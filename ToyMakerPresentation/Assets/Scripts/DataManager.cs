@@ -11,16 +11,13 @@ public class DataManager
 {
     private Dictionary<string, Dictionary<int, object>> dataStore = new ();
 
-    private Dictionary<string, Type> supportedTypes = new ();
-
-    private List<string> targetNamespaces = new List<string> { "ToyProject.Data" };
+    private TypeResolver typeResolver;
 
     public DataManager() : this(new List<string> { "ToyProject.Data" }) { }
 
     public DataManager(List<string> namespaces)
     {
-        targetNamespaces = namespaces ?? new List<string> { "ToyProject.Data" };
-        LoadSupportedDataTypes();
+        typeResolver = new TypeResolver(namespaces);
     }
 
     private string ResolveFilePath(string fileName)
@@ -112,7 +109,7 @@ public class DataManager
                     Debug.Log($"DataManager: 카테고리 '{typeName}' 처리 시작");
                     
                     // 타입 확인
-                    Type targetType = GetSupportedDataType(typeName);
+                    Type targetType = typeResolver.GetSupportedType(typeName);
                     if (targetType == null)
                     {
                         Debug.LogWarning($"DataManager: 카테고리 '{typeName}'에 대한 타입을 찾을 수 없습니다.");
@@ -212,127 +209,36 @@ public class DataManager
     // 네임스페이스 관리용 메서드
     public void SetTargetNamespaces(List<string> namespaces)
     {
-        targetNamespaces = namespaces ?? new List<string> { "ToyProject.Data" };
-        LoadSupportedDataTypes();
+        typeResolver.SetTargetNamespaces(namespaces);
     }
 
-    public List<string> GetTargetNamespaces() => new List<string>(targetNamespaces);
+    public List<string> GetTargetNamespaces() => typeResolver.GetTargetNamespaces();
 
     public void AddTargetNamespace(string ns)
     {
-        if (!targetNamespaces.Contains(ns))
+        var list = typeResolver.GetTargetNamespaces();
+        if (!list.Contains(ns))
         {
-            targetNamespaces.Add(ns);
-            LoadSupportedDataTypes();
+            list.Add(ns);
+            typeResolver.SetTargetNamespaces(list);
         }
     }
 
     public void RemoveTargetNamespace(string ns)
     {
-        if (targetNamespaces.Remove(ns))
+        var list = typeResolver.GetTargetNamespaces();
+        if (list.Remove(ns))
         {
-            LoadSupportedDataTypes();
+            typeResolver.SetTargetNamespaces(list);
         }
     }
 
-    private void LoadSupportedDataTypes()
+    public Type GetSupportedDataType(string typeString)
     {
-        supportedTypes.Clear();
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-        foreach (var assembly in assemblies)
-        {
-            try
-            {
-                foreach (var type in assembly.GetTypes())
-                {
-                    if (type.Namespace != null && targetNamespaces.Contains(type.Namespace) && (type.IsClass || type.IsValueType) && !type.IsAbstract)
-                    {
-                        supportedTypes[type.Name] = type;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"DataManager: 어셈블리 {assembly.FullName}에서 타입 로딩 오류 - {ex.Message}");
-            }
-        }
-        Debug.Log($"DataManager: {supportedTypes.Count}개의 지원되는 데이터 타입 로드됨:");
-        foreach (var type in supportedTypes)
-        {
-            Debug.Log($"- {type.Key}: {type.Value.FullName}");
-        }
+        return typeResolver.GetSupportedType(typeString);
     }
 
-   public Type GetSupportedDataType(string typeString)
-    {
-        try
-        {
-            // 1. 예외 처리 추가
-            if (string.IsNullOrEmpty(typeString))
-            {
-                Debug.LogWarning("DataManager: 빈 타입 문자열이 전달되었습니다.");
-                return null;
-            }
-            
-            // 2. 캐시된 supportedTypes에서 먼저 검색
-            if (supportedTypes.TryGetValue(typeString, out Type cachedType))
-            {
-                return cachedType;
-            }
-            
-            // 3. 네임스페이스가 포함된 경우 처리
-            if (typeString.Contains("."))
-            {
-                // 전체 타입 이름으로 직접 찾기
-                Type directType = Type.GetType(typeString);
-                if (directType != null)
-                {
-                    supportedTypes[typeString] = directType; // 캐시에 추가
-                    return directType;
-                }
-                
-                // 마지막 부분만 추출하여 다시 시도
-                string[] parts = typeString.Split('.');
-                string typeName = parts[parts.Length - 1];
-                if (supportedTypes.TryGetValue(typeName, out Type typeByName))
-                {
-                    supportedTypes[typeString] = typeByName; // 캐시에 추가
-                    return typeByName;
-                }
-            }
-            
-            // 4. 모든 어셈블리의 모든 타입 중에서 이름이 일치하는 것 찾기
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                try
-                {
-                    foreach (var type in assembly.GetTypes())
-                    {
-                        if (type.Name == typeString)
-                        {
-                            Debug.Log($"타입을 찾았습니다: {type.FullName}");
-                            supportedTypes[typeString] = type;
-                            return type;
-                        }
-                    }
-                }
-                catch
-                {
-                    // 어셈블리 검색 오류 무시
-                }
-            }
-            
-            // 6. 타입을 찾을 수 없는 경우
-            Debug.LogWarning($"DataManager: 타입 '{typeString}'을 찾을 수 없습니다.");
-            return null;
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"DataManager: GetSupportedDataType 오류 - {ex.Message}\n{ex.StackTrace}");
-            return null;
-        }
-    }
-
+    public IReadOnlyList<Type> AvailableTypes => typeResolver.GetAvailableTypes();
 
     public Dictionary<int, object> GetDataForEditing(string category)
     {
@@ -344,6 +250,4 @@ public class DataManager
         Debug.LogWarning($"DataManager: 데이터 스토어에서 카테고리 '{category}'를 찾을 수 없습니다.");
         return null;
     }
-
-    public IReadOnlyList<Type> AvailableTypes => supportedTypes.Values.ToList();
 }
