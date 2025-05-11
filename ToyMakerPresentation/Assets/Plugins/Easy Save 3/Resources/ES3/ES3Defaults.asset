@@ -37,6 +37,8 @@ MonoBehaviour:
     assemblyNames:
     - Assembly-CSharp
     - Assembly-CSharp-firstpass
+    - Cinemachine
+    - Sirenix.OdinInspector.Modules.Unity.Addressables
     showAdvancedSettings: 0
   addMgrToSceneAutomatically: 0
   autoUpdateReferences: 1
