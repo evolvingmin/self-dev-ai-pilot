@@ -17,6 +17,11 @@ public class DataManagerEditor : EditorWindow
     private object cachedNewItem;
     private string searchQuery = "";
 
+    private string newCategoryTypeSearch = "";
+    private int selectedTypeIndex = 0;
+    private List<Type> availableTypes = new List<Type>();
+    private List<string> availableTypeNames = new List<string>();
+
     [MenuItem("Window/Data Manager Editor")]
     public static void ShowWindow()
     {
@@ -26,21 +31,55 @@ public class DataManagerEditor : EditorWindow
     private void OnEnable()
     {
         dataManager = new DataManager();
+        // 지원 타입 캐시
+        availableTypes = dataManager.GetType().GetField("supportedTypes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .GetValue(dataManager) as Dictionary<string, Type> != null
+            ? ((Dictionary<string, Type>)dataManager.GetType().GetField("supportedTypes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(dataManager)).Values.ToList()
+            : new List<Type>();
+        availableTypeNames = availableTypes.Select(t => t.Name).ToList();
     }
 
     private void OnGUI()
     {
         GUILayout.Label("Data Manager", EditorStyles.boldLabel);
-
         GUILayout.Space(10);
 
+        // 파일 선택 영역 개선
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Select JSON File", EditorStyles.boldLabel);
-        if (GUILayout.Button("Select JSON File"))
+        GUILayout.FlexibleSpace();
+        GUI.backgroundColor = new Color(0.2f, 0.6f, 1f, 1f); // 파란색 강조
+        if (GUILayout.Button("Select JSON File", GUILayout.Width(160), GUILayout.Height(28)))
         {
             SelectJsonFile();
         }
+        GUI.backgroundColor = Color.white;
+        GUILayout.EndHorizontal();
 
-        GUILayout.Label("Selected File: " + selectedJsonFile);
+        // 파일 경로 표시 (길면 축약)
+        string fileLabel = string.IsNullOrEmpty(selectedJsonFile) ? "(No file selected)" : Path.GetFileName(selectedJsonFile);
+        string fullPath = selectedJsonFile;
+        if (!string.IsNullOrEmpty(selectedJsonFile) && selectedJsonFile.Length > 60)
+        {
+            int keep = 25;
+            fileLabel = selectedJsonFile.Substring(0, keep) + "..." + selectedJsonFile.Substring(selectedJsonFile.Length - keep);
+        }
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Selected File:", GUILayout.Width(90));
+        if (!string.IsNullOrEmpty(selectedJsonFile))
+        {
+            GUIStyle boldStyle = new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Bold };
+            GUILayout.Label(fileLabel, boldStyle);
+            if (GUILayout.Button("Show in Explorer", GUILayout.Width(120)))
+            {
+                EditorUtility.RevealInFinder(fullPath);
+            }
+        }
+        else
+        {
+            GUILayout.Label("(No file selected)");
+        }
+        GUILayout.EndHorizontal();
 
         GUILayout.Space(10);
 
@@ -55,12 +94,7 @@ public class DataManagerEditor : EditorWindow
 
         GUILayout.Space(10);
 
-        GUILayout.Label("Add New Category", EditorStyles.boldLabel);
-        newCategory = GUILayout.TextField(newCategory);
-        if (GUILayout.Button("Add Category"))
-        {
-            AddNewCategory();
-        }
+        DrawNewCategorySection();
 
         GUILayout.Space(10);
 
@@ -119,6 +153,49 @@ public class DataManagerEditor : EditorWindow
             dataManager.SetData(newCategory, new Dictionary<int, object>());
             newCategory = "";
         }
+    }
+
+    private void DrawNewCategorySection()
+    {
+        GUILayout.Label("Add New Category", EditorStyles.boldLabel);
+        // 타입 검색 필드
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Type Search:", GUILayout.Width(80));
+        newCategoryTypeSearch = GUILayout.TextField(newCategoryTypeSearch);
+        GUILayout.EndHorizontal();
+        // 타입 리스트 필터링
+        var filteredTypes = string.IsNullOrEmpty(newCategoryTypeSearch)
+            ? availableTypes
+            : availableTypes.Where(t => t.Name.IndexOf(newCategoryTypeSearch, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        var filteredTypeNames = filteredTypes.Select(t => t.Name).ToArray();
+        if (filteredTypeNames.Length == 0)
+        {
+            GUILayout.Label("No matching types.", EditorStyles.helpBox);
+            return;
+        }
+        // 타입 드롭다운
+        selectedTypeIndex = Mathf.Clamp(selectedTypeIndex, 0, filteredTypes.Count - 1);
+        selectedTypeIndex = EditorGUILayout.Popup("Data Type", selectedTypeIndex, filteredTypeNames);
+        // 카테고리명 입력
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Category Name:", GUILayout.Width(100));
+        newCategory = GUILayout.TextField(newCategory);
+        GUILayout.EndHorizontal();
+        // 추가 버튼
+        GUI.enabled = !string.IsNullOrEmpty(newCategory) && filteredTypes.Count > 0;
+        if (GUILayout.Button("Add Category"))
+        {
+            if (!string.IsNullOrEmpty(newCategory))
+            {
+                dataManager.SetData(newCategory, new Dictionary<int, object>());
+                selectedCategory = newCategory;
+                currentData = dataManager.GetDataForEditing(selectedCategory);
+                cachedNewItem = null;
+                newCategory = "";
+                newCategoryTypeSearch = "";
+            }
+        }
+        GUI.enabled = true;
     }
 
     private void DrawFilteredData()
@@ -273,12 +350,15 @@ public class DataManagerEditor : EditorWindow
         {
             if (cachedNewItem == null || cachedNewItem.GetType() != categoryType)
             {
-                cachedNewItem = Activator.CreateInstance(categoryType);
+                cachedNewItem = CreateInstanceSafe(categoryType);
             }
             var newItem = cachedNewItem;
-
+            if (newItem == null)
+            {
+                GUILayout.Label($"{categoryType.Name} 인스턴스를 생성할 수 없습니다.", EditorStyles.helpBox);
+                return;
+            }
             DrawFieldsForObject(newItem);
-
             if (GUILayout.Button("Add Item"))
             {
                 AddNewItem(newItem, categoryType);
@@ -352,6 +432,33 @@ public class DataManagerEditor : EditorWindow
         {
             if (!property.CanWrite || property.Name == "Id") continue;
             DrawField(property.Name, target, property);
+        }
+    }
+
+    private object CreateInstanceSafe(Type type)
+    {
+        try
+        {
+            // 기본 생성자가 있으면 사용
+            return Activator.CreateInstance(type);
+        }
+        catch (MissingMethodException)
+        {
+            // 매개변수 없는 생성자가 없을 때, FormatterServices로 생성 (필드 초기화 X)
+            try
+            {
+                return System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"인스턴스 생성 실패: {type.FullName} - {ex.Message}");
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"인스턴스 생성 실패: {type.FullName} - {ex.Message}");
+            return null;
         }
     }
 }
