@@ -2,6 +2,7 @@ namespace ToyProject
 {
     using UnityEngine;
     using System.Collections.Generic;
+    using ToyProject.Data;
 
     public class GameManager : MonoBehaviour
     {

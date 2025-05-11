@@ -5,30 +5,35 @@ using UnityEngine;
 using System.Linq;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using ToyProject.Data;
 
 public class DataManagerEditor : EditorWindow
 {
     private DataManager dataManager;
-    private string selectedJsonFile = "";
-    private Vector2 scrollPosition;
-    private Dictionary<int, object> currentData;
-    private string newCategory = "";
-    private string selectedCategory = "";
-    private object cachedNewItem;
-    private string searchQuery = "";
-
-    private string newCategoryTypeSearch = "";
-    private int selectedTypeIndex = 0;
-    private List<Type> availableTypes = new List<Type>();
-    private List<string> availableTypeNames = new List<string>();
+    private EditorState state;
 
     private enum Tab { Data, Settings }
     private Tab currentTab = Tab.Data;
-    private string newNamespaceInput = "";
 
     private const float ButtonWidth = 110f;
     private const float FieldWidth = 220f;
     private const float LabelWidth = 100f;
+
+    private class EditorState
+    {
+        public string selectedJsonFile = "";
+        public string selectedCategory = "";
+        public string newCategory = "";
+        public string searchQuery = "";
+        public string newCategoryTypeSearch = "";
+        public int selectedTypeIndex = 0;
+        public List<Type> availableTypes = new List<Type>();
+        public List<string> availableTypeNames = new List<string>();
+        public Dictionary<int, object> currentData;
+        public object cachedNewItem;
+        public Vector2 scrollPosition;
+        public string newNamespaceInput = "";
+    }
 
     [MenuItem("Window/Data Manager Editor")]
     public static void ShowWindow()
@@ -39,8 +44,14 @@ public class DataManagerEditor : EditorWindow
     private void OnEnable()
     {
         dataManager = new DataManager();
-        availableTypes = dataManager.AvailableTypes.ToList();
-        availableTypeNames = availableTypes.Select(t => t.Name).ToList();
+        state = new EditorState();
+        RefreshTypeList();
+    }
+
+    private void RefreshTypeList()
+    {
+        state.availableTypes = dataManager.AvailableTypes.ToList();
+        state.availableTypeNames = state.availableTypes.Select(t => t.Name).ToList();
     }
 
     private void OnGUI()
@@ -55,15 +66,15 @@ public class DataManagerEditor : EditorWindow
         GUILayout.Space(8);
         if (currentTab == Tab.Data)
         {
-            DrawDataManagerTab();
+            DrawDataManagerTab(state);
         }
         else if (currentTab == Tab.Settings)
         {
-            DrawSettingsTab();
+            DrawSettingsTab(state);
         }
     }
 
-    private void DrawDataManagerTab()
+    private void DrawDataManagerTab(EditorState state)
     {
         GUILayout.Label("Data Manager", EditorStyles.boldLabel);
         GUILayout.Space(8);
@@ -79,21 +90,21 @@ public class DataManagerEditor : EditorWindow
         }
         GUI.backgroundColor = Color.white;
         GUILayout.Space(4);
-        if (!string.IsNullOrEmpty(selectedJsonFile))
+        if (!string.IsNullOrEmpty(state.selectedJsonFile))
         {
             if (GUILayout.Button("Show in Explorer", GUILayout.Width(ButtonWidth)))
             {
-                EditorUtility.RevealInFinder(selectedJsonFile);
+                EditorUtility.RevealInFinder(state.selectedJsonFile);
             }
         }
         GUILayout.EndHorizontal();
         // 파일 경로 표시
         GUILayout.BeginHorizontal();
         GUILayout.Label("Selected File:", GUILayout.Width(LabelWidth));
-        if (!string.IsNullOrEmpty(selectedJsonFile))
+        if (!string.IsNullOrEmpty(state.selectedJsonFile))
         {
             GUIStyle boldStyle = new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Bold };
-            GUILayout.Label(Path.GetFileName(selectedJsonFile), boldStyle, GUILayout.Width(FieldWidth));
+            GUILayout.Label(Path.GetFileName(state.selectedJsonFile), boldStyle, GUILayout.Width(FieldWidth));
         }
         else
         {
@@ -115,24 +126,24 @@ public class DataManagerEditor : EditorWindow
         GUILayout.EndHorizontal();
         GUILayout.Space(8);
         DrawSectionSeparator();
-        DrawNewCategorySection();
+        DrawNewCategorySection(state);
         GUILayout.Space(8);
-        if (!string.IsNullOrEmpty(selectedCategory) && currentData != null)
+        if (!string.IsNullOrEmpty(state.selectedCategory) && state.currentData != null)
         {
             DrawSectionSeparator();
-            GUILayout.Label($"Editing Category: {selectedCategory}", EditorStyles.boldLabel);
+            GUILayout.Label($"Editing Category: {state.selectedCategory}", EditorStyles.boldLabel);
             GUILayout.BeginHorizontal();
             GUILayout.Label("Search Items", GUILayout.Width(LabelWidth));
-            searchQuery = GUILayout.TextField(searchQuery, GUILayout.Width(FieldWidth));
+            state.searchQuery = GUILayout.TextField(state.searchQuery, GUILayout.Width(FieldWidth));
             GUILayout.EndHorizontal();
             GUILayout.Space(6);
-            DrawFilteredData();
+            DrawFilteredData(state);
             GUILayout.Space(8);
             DrawSectionSeparator();
             GUILayout.Label("Add New Item", EditorStyles.boldLabel);
-            if (!string.IsNullOrEmpty(selectedCategory))
+            if (!string.IsNullOrEmpty(state.selectedCategory))
             {
-                DrawNewItemFields();
+                DrawNewItemFields(state);
             }
             GUILayout.Space(4);
             if (GUILayout.Button("Save Data", GUILayout.Width(ButtonWidth + 20)))
@@ -151,81 +162,81 @@ public class DataManagerEditor : EditorWindow
         string path = EditorUtility.OpenFilePanel("Select JSON File", Application.persistentDataPath, "json");
         if (!string.IsNullOrEmpty(path))
         {
-            selectedJsonFile = path;
-            Debug.Log("Selected JSON File: " + selectedJsonFile);
-            dataManager.LoadData(selectedJsonFile);
+            state.selectedJsonFile = path;
+            Debug.Log("Selected JSON File: " + state.selectedJsonFile);
+            dataManager.LoadData(state.selectedJsonFile);
         }
     }
 
     private void SelectCategory(string category)
     {
-        selectedCategory = category;
-        currentData = dataManager.GetDataForEditing(selectedCategory);
+        state.selectedCategory = category;
+        state.currentData = dataManager.GetDataForEditing(state.selectedCategory);
     }
 
     private void AddNewCategory()
     {
-        if (!string.IsNullOrEmpty(newCategory))
+        if (!string.IsNullOrEmpty(state.newCategory))
         {
-            dataManager.SetData(newCategory, new Dictionary<int, object>());
-            newCategory = "";
+            dataManager.SetData(state.newCategory, new Dictionary<int, object>());
+            state.newCategory = "";
         }
     }
 
-    private void DrawNewCategorySection()
+    private void DrawNewCategorySection(EditorState state)
     {
         GUILayout.Label("Add New Category", EditorStyles.boldLabel);
         GUILayout.BeginHorizontal();
         GUILayout.Label("Type Search:", GUILayout.Width(LabelWidth));
-        newCategoryTypeSearch = GUILayout.TextField(newCategoryTypeSearch, GUILayout.Width(FieldWidth));
+        state.newCategoryTypeSearch = GUILayout.TextField(state.newCategoryTypeSearch, GUILayout.Width(FieldWidth));
         GUILayout.EndHorizontal();
-        var filteredTypes = string.IsNullOrEmpty(newCategoryTypeSearch)
-            ? availableTypes
-            : availableTypes.Where(t => t.Name.IndexOf(newCategoryTypeSearch, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        var filteredTypes = string.IsNullOrEmpty(state.newCategoryTypeSearch)
+            ? state.availableTypes
+            : state.availableTypes.Where(t => t.Name.IndexOf(state.newCategoryTypeSearch, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
         var filteredTypeNames = filteredTypes.Select(t => t.Name).ToArray();
         if (filteredTypeNames.Length == 0)
         {
             GUILayout.Label("No matching types.", EditorStyles.helpBox);
             return;
         }
-        selectedTypeIndex = Mathf.Clamp(selectedTypeIndex, 0, filteredTypes.Count - 1);
+        state.selectedTypeIndex = Mathf.Clamp(state.selectedTypeIndex, 0, filteredTypes.Count - 1);
         GUILayout.BeginHorizontal();
         GUILayout.Label("Data Type", GUILayout.Width(LabelWidth));
-        selectedTypeIndex = EditorGUILayout.Popup(selectedTypeIndex, filteredTypeNames, GUILayout.Width(FieldWidth));
+        state.selectedTypeIndex = EditorGUILayout.Popup(state.selectedTypeIndex, filteredTypeNames, GUILayout.Width(FieldWidth));
         GUILayout.EndHorizontal();
-        var selectedType = filteredTypes[selectedTypeIndex];
+        var selectedType = filteredTypes[state.selectedTypeIndex];
         string categoryName = selectedType.Name;
 
         GUI.enabled = !dataManager.GetDataKeys().Contains(categoryName);
         if (GUILayout.Button("Generate", GUILayout.Width(ButtonWidth)))
         {
             dataManager.SetData(categoryName, new Dictionary<int, object>());
-            selectedCategory = categoryName;
-            currentData = dataManager.GetDataForEditing(selectedCategory);
-            cachedNewItem = null;
-            newCategoryTypeSearch = "";
+            state.selectedCategory = categoryName;
+            state.currentData = dataManager.GetDataForEditing(state.selectedCategory);
+            state.cachedNewItem = null;
+            state.newCategoryTypeSearch = "";
         }
         GUI.enabled = true;
     }
 
-    private void DrawFilteredData()
+    private void DrawFilteredData(EditorState state)
     {
         // 카드형 그리드 레이아웃: 한 줄에 3개씩
         int cardsPerRow = 3;
         int cardCount = 0;
-        IEnumerable<KeyValuePair<int, object>> filteredData = currentData;
-        if (!string.IsNullOrEmpty(searchQuery))
+        IEnumerable<KeyValuePair<int, object>> filteredData = state.currentData;
+        if (!string.IsNullOrEmpty(state.searchQuery))
         {
-            filteredData = FilterDataBySearchQuery();
+            filteredData = FilterDataBySearchQuery(state);
         }
-        scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(320));
+        state.scrollPosition = GUILayout.BeginScrollView(state.scrollPosition, GUILayout.Height(320));
         GUILayout.BeginVertical();
         GUILayout.BeginHorizontal();
         foreach (var entry in filteredData.ToList())
         {
             GUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Width(220), GUILayout.Height(100));
             GUILayout.Label($"ID: {entry.Key}", EditorStyles.boldLabel);
-            DrawEntryFields(entry);
+            DrawEntryFields(entry, state);
             GUILayout.EndVertical();
             cardCount++;
             if (cardCount % cardsPerRow == 0)
@@ -239,14 +250,14 @@ public class DataManagerEditor : EditorWindow
         GUILayout.EndScrollView();
     }
 
-    private IEnumerable<KeyValuePair<int, object>> FilterDataBySearchQuery()
+    private IEnumerable<KeyValuePair<int, object>> FilterDataBySearchQuery(EditorState state)
     {
-        return currentData.Where(entry =>
+        return state.currentData.Where(entry =>
         {
             var entryType = entry.Value.GetType();
             foreach (var property in entryType.GetProperties())
             {
-                if (property.CanRead && property.GetValue(entry.Value)?.ToString().Contains(searchQuery, StringComparison.OrdinalIgnoreCase) == true)
+                if (property.CanRead && property.GetValue(entry.Value)?.ToString().Contains(state.searchQuery, StringComparison.OrdinalIgnoreCase) == true)
                 {
                     return true;
                 }
@@ -255,11 +266,11 @@ public class DataManagerEditor : EditorWindow
         });
     }
 
-    private void DrawDataEntry(KeyValuePair<int, object> entry, List<int> keysToRemove)
+    private void DrawDataEntry(KeyValuePair<int, object> entry, List<int> keysToRemove, EditorState state)
     {
         GUILayout.BeginHorizontal();
         GUILayout.Label($"ID: {entry.Key}", GUILayout.Width(LabelWidth));
-        DrawEntryFields(entry);
+        DrawEntryFields(entry, state);
         if (GUILayout.Button("Delete", GUILayout.Width(ButtonWidth)))
         {
             keysToRemove.Add(entry.Key);
@@ -268,7 +279,7 @@ public class DataManagerEditor : EditorWindow
         GUILayout.Space(6);
     }
 
-    private void DrawEntryFields(KeyValuePair<int, object> entry)
+    private void DrawEntryFields(KeyValuePair<int, object> entry, EditorState state)
     {
         var entryType = entry.Value.GetType();
         if (entryType.IsClass || entryType.IsValueType && !entryType.IsPrimitive)
@@ -280,7 +291,7 @@ public class DataManagerEditor : EditorWindow
 
                 var propertyValue = property.GetValue(entry.Value)?.ToString() ?? string.Empty;
 
-                if (!string.IsNullOrEmpty(searchQuery) && propertyValue.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(state.searchQuery) && propertyValue.Contains(state.searchQuery, StringComparison.OrdinalIgnoreCase))
                 {
                     GUI.backgroundColor = Color.yellow;
                 }
@@ -297,7 +308,7 @@ public class DataManagerEditor : EditorWindow
         }
         else
         {
-            DrawPrimitiveField(entry);
+            DrawPrimitiveField(entry, state);
         }
     }
 
@@ -343,14 +354,14 @@ public class DataManagerEditor : EditorWindow
         GUILayout.EndHorizontal();
     }
 
-    private void DrawPrimitiveField(KeyValuePair<int, object> entry)
+    private void DrawPrimitiveField(KeyValuePair<int, object> entry, EditorState state)
     {
         if (entry.Value is int intValue)
         {
             string newValue = GUILayout.TextField(intValue.ToString(), GUILayout.Width(FieldWidth));
             if (int.TryParse(newValue, out int parsedValue) && parsedValue != intValue)
             {
-                currentData[entry.Key] = parsedValue;
+                state.currentData[entry.Key] = parsedValue;
             }
         }
         else if (entry.Value is float floatValue)
@@ -358,7 +369,7 @@ public class DataManagerEditor : EditorWindow
             string newValue = GUILayout.TextField(floatValue.ToString(), GUILayout.Width(FieldWidth));
             if (float.TryParse(newValue, out float parsedValue) && parsedValue != floatValue)
             {
-                currentData[entry.Key] = parsedValue;
+                state.currentData[entry.Key] = parsedValue;
             }
         }
         else if (entry.Value is string stringValue)
@@ -366,7 +377,7 @@ public class DataManagerEditor : EditorWindow
             string newValue = GUILayout.TextField(stringValue, GUILayout.Width(FieldWidth));
             if (newValue != stringValue)
             {
-                currentData[entry.Key] = newValue;
+                state.currentData[entry.Key] = newValue;
             }
         }
         else if (entry.Value is Enum enumValue)
@@ -376,7 +387,7 @@ public class DataManagerEditor : EditorWindow
             int newIndex = EditorGUILayout.Popup(selectedIndex, enumNames, GUILayout.Width(FieldWidth));
             if (newIndex != selectedIndex)
             {
-                currentData[entry.Key] = Enum.Parse(enumValue.GetType(), enumNames[newIndex]);
+                state.currentData[entry.Key] = Enum.Parse(enumValue.GetType(), enumNames[newIndex]);
             }
         }
         else
@@ -388,7 +399,7 @@ public class DataManagerEditor : EditorWindow
                 try
                 {
                     object parsedValue = JsonConvert.DeserializeObject(newValue, entry.Value.GetType());
-                    currentData[entry.Key] = parsedValue;
+                    state.currentData[entry.Key] = parsedValue;
                 }
                 catch (Exception ex)
                 {
@@ -398,16 +409,16 @@ public class DataManagerEditor : EditorWindow
         }
     }
 
-    private void DrawNewItemFields()
+    private void DrawNewItemFields(EditorState state)
     {
-        var categoryType = dataManager.GetSupportedDataType(selectedCategory);
+        var categoryType = dataManager.GetSupportedDataType(state.selectedCategory);
         if (categoryType != null)
         {
-            if (cachedNewItem == null || cachedNewItem.GetType() != categoryType)
+            if (state.cachedNewItem == null || state.cachedNewItem.GetType() != categoryType)
             {
-                cachedNewItem = CreateInstanceSafe(categoryType);
+                state.cachedNewItem = CreateInstanceSafe(categoryType);
             }
-            var newItem = cachedNewItem;
+            var newItem = state.cachedNewItem;
             if (newItem == null)
             {
                 GUILayout.Label($"{categoryType.Name} 인스턴스를 생성할 수 없습니다.", EditorStyles.helpBox);
@@ -428,21 +439,21 @@ public class DataManagerEditor : EditorWindow
 
     private void AddNewItem(object newItem, Type categoryType)
     {
-        int newId = currentData.Keys.Count > 0 ? currentData.Keys.Max() + 1 : 1;
+        int newId = state.currentData.Keys.Count > 0 ? state.currentData.Keys.Max() + 1 : 1;
         var idProperty = categoryType.GetProperty("Id");
         if (idProperty != null && idProperty.CanWrite)
         {
             idProperty.SetValue(newItem, newId);
         }
-        currentData[newId] = newItem;
+        state.currentData[newId] = newItem;
     }
 
     private void SaveData()
     {
-        dataManager.SaveData(selectedJsonFile);
+        dataManager.SaveData(state.selectedJsonFile);
     }
 
-    private void DrawSettingsTab()
+    private void DrawSettingsTab(EditorState state)
     {
         GUILayout.Label("Namespace Settings", EditorStyles.boldLabel);
         GUILayout.Space(6);
@@ -454,8 +465,7 @@ public class DataManagerEditor : EditorWindow
             if (GUILayout.Button("Remove", GUILayout.Width(ButtonWidth)))
             {
                 dataManager.RemoveTargetNamespace(nsList[i]);
-                availableTypes = dataManager.AvailableTypes.ToList();
-                availableTypeNames = availableTypes.Select(t => t.Name).ToList();
+                RefreshTypeList();
                 GUI.FocusControl(null);
                 break;
             }
@@ -463,14 +473,13 @@ public class DataManagerEditor : EditorWindow
         }
         GUILayout.Space(8);
         GUILayout.BeginHorizontal();
-        newNamespaceInput = GUILayout.TextField(newNamespaceInput, GUILayout.Width(FieldWidth));
-        GUI.enabled = !string.IsNullOrWhiteSpace(newNamespaceInput) && !nsList.Contains(newNamespaceInput);
+        state.newNamespaceInput = GUILayout.TextField(state.newNamespaceInput, GUILayout.Width(FieldWidth));
+        GUI.enabled = !string.IsNullOrWhiteSpace(state.newNamespaceInput) && !nsList.Contains(state.newNamespaceInput);
         if (GUILayout.Button("Add Namespace", GUILayout.Width(ButtonWidth + 10)))
         {
-            dataManager.AddTargetNamespace(newNamespaceInput.Trim());
-            availableTypes = dataManager.AvailableTypes.ToList();
-            availableTypeNames = availableTypes.Select(t => t.Name).ToList();
-            newNamespaceInput = "";
+            dataManager.AddTargetNamespace(state.newNamespaceInput.Trim());
+            RefreshTypeList();
+            state.newNamespaceInput = "";
             GUI.FocusControl(null);
         }
         GUI.enabled = true;
@@ -479,8 +488,7 @@ public class DataManagerEditor : EditorWindow
         if (GUILayout.Button("Reload Types (Apply)", GUILayout.Width(ButtonWidth + 40)))
         {
             dataManager.SetTargetNamespaces(dataManager.GetTargetNamespaces());
-            availableTypes = dataManager.AvailableTypes.ToList();
-            availableTypeNames = availableTypes.Select(t => t.Name).ToList();
+            RefreshTypeList();
             GUI.FocusControl(null);
         }
         GUILayout.Space(8);

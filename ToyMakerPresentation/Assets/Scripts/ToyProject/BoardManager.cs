@@ -1,6 +1,7 @@
 namespace ToyProject
 {
     using UnityEngine;
+    using ToyProject.Data;
 
     public class BoardManager : MonoBehaviour, IGameModule
     {
@@ -13,7 +14,7 @@ namespace ToyProject
 
         public void InitializeModule()
         {
-            GameManager gameManager = FindObjectOfType<GameManager>();
+            GameManager gameManager = FindFirstObjectByType<GameManager>();
             if (gameManager != null)
             {
                 dataManager = gameManager.GetDataManager();
