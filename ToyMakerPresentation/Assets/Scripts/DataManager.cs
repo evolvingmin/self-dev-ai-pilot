@@ -344,4 +344,6 @@ public class DataManager
         Debug.LogWarning($"DataManager: 데이터 스토어에서 카테고리 '{category}'를 찾을 수 없습니다.");
         return null;
     }
+
+    public IReadOnlyList<Type> AvailableTypes => supportedTypes.Values.ToList();
 }

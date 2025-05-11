@@ -22,6 +22,10 @@ public class DataManagerEditor : EditorWindow
     private List<Type> availableTypes = new List<Type>();
     private List<string> availableTypeNames = new List<string>();
 
+    private enum Tab { Data, Settings }
+    private Tab currentTab = Tab.Data;
+    private string newNamespaceInput = "";
+
     [MenuItem("Window/Data Manager Editor")]
     public static void ShowWindow()
     {
@@ -31,15 +35,28 @@ public class DataManagerEditor : EditorWindow
     private void OnEnable()
     {
         dataManager = new DataManager();
-        // 지원 타입 캐시
-        availableTypes = dataManager.GetType().GetField("supportedTypes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            .GetValue(dataManager) as Dictionary<string, Type> != null
-            ? ((Dictionary<string, Type>)dataManager.GetType().GetField("supportedTypes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(dataManager)).Values.ToList()
-            : new List<Type>();
+        availableTypes = dataManager.AvailableTypes.ToList();
         availableTypeNames = availableTypes.Select(t => t.Name).ToList();
     }
 
     private void OnGUI()
+    {
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Toggle(currentTab == Tab.Data, "Data Manager", EditorStyles.toolbarButton)) currentTab = Tab.Data;
+        if (GUILayout.Toggle(currentTab == Tab.Settings, "Settings", EditorStyles.toolbarButton)) currentTab = Tab.Settings;
+        GUILayout.EndHorizontal();
+        GUILayout.Space(8);
+        if (currentTab == Tab.Data)
+        {
+            DrawDataManagerTab();
+        }
+        else if (currentTab == Tab.Settings)
+        {
+            DrawSettingsTab();
+        }
+    }
+
+    private void DrawDataManagerTab()
     {
         GUILayout.Label("Data Manager", EditorStyles.boldLabel);
         GUILayout.Space(10);
@@ -176,24 +193,21 @@ public class DataManagerEditor : EditorWindow
         // 타입 드롭다운
         selectedTypeIndex = Mathf.Clamp(selectedTypeIndex, 0, filteredTypes.Count - 1);
         selectedTypeIndex = EditorGUILayout.Popup("Data Type", selectedTypeIndex, filteredTypeNames);
-        // 카테고리명 입력
+        var selectedType = filteredTypes[selectedTypeIndex];
+        string categoryName = selectedType.Name;
         GUILayout.BeginHorizontal();
         GUILayout.Label("Category Name:", GUILayout.Width(100));
-        newCategory = GUILayout.TextField(newCategory);
+        GUILayout.Label(categoryName, EditorStyles.boldLabel);
         GUILayout.EndHorizontal();
-        // 추가 버튼
-        GUI.enabled = !string.IsNullOrEmpty(newCategory) && filteredTypes.Count > 0;
-        if (GUILayout.Button("Add Category"))
+        // 생성 버튼
+        GUI.enabled = !dataManager.GetDataKeys().Contains(categoryName);
+        if (GUILayout.Button("Generate"))
         {
-            if (!string.IsNullOrEmpty(newCategory))
-            {
-                dataManager.SetData(newCategory, new Dictionary<int, object>());
-                selectedCategory = newCategory;
-                currentData = dataManager.GetDataForEditing(selectedCategory);
-                cachedNewItem = null;
-                newCategory = "";
-                newCategoryTypeSearch = "";
-            }
+            dataManager.SetData(categoryName, new Dictionary<int, object>());
+            selectedCategory = categoryName;
+            currentData = dataManager.GetDataForEditing(selectedCategory);
+            cachedNewItem = null;
+            newCategoryTypeSearch = "";
         }
         GUI.enabled = true;
     }
@@ -460,5 +474,50 @@ public class DataManagerEditor : EditorWindow
             Debug.LogError($"인스턴스 생성 실패: {type.FullName} - {ex.Message}");
             return null;
         }
+    }
+
+    private void DrawSettingsTab()
+    {
+        GUILayout.Label("Namespace Settings", EditorStyles.boldLabel);
+        GUILayout.Space(6);
+        var nsList = dataManager.GetTargetNamespaces();
+        for (int i = 0; i < nsList.Count; i++)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(nsList[i], EditorStyles.textField);
+            if (GUILayout.Button("Remove", GUILayout.Width(70)))
+            {
+                dataManager.RemoveTargetNamespace(nsList[i]);
+                availableTypes = dataManager.AvailableTypes.ToList();
+                availableTypeNames = availableTypes.Select(t => t.Name).ToList();
+                GUI.FocusControl(null);
+                break;
+            }
+            GUILayout.EndHorizontal();
+        }
+        GUILayout.Space(8);
+        GUILayout.BeginHorizontal();
+        newNamespaceInput = GUILayout.TextField(newNamespaceInput);
+        GUI.enabled = !string.IsNullOrWhiteSpace(newNamespaceInput) && !nsList.Contains(newNamespaceInput);
+        if (GUILayout.Button("Add Namespace", GUILayout.Width(120)))
+        {
+            dataManager.AddTargetNamespace(newNamespaceInput.Trim());
+            availableTypes = dataManager.AvailableTypes.ToList();
+            availableTypeNames = availableTypes.Select(t => t.Name).ToList();
+            newNamespaceInput = "";
+            GUI.FocusControl(null);
+        }
+        GUI.enabled = true;
+        GUILayout.EndHorizontal();
+        GUILayout.Space(8);
+        if (GUILayout.Button("Reload Types (Apply)", GUILayout.Width(180)))
+        {
+            dataManager.SetTargetNamespaces(dataManager.GetTargetNamespaces());
+            availableTypes = dataManager.AvailableTypes.ToList();
+            availableTypeNames = availableTypes.Select(t => t.Name).ToList();
+            GUI.FocusControl(null);
+        }
+        GUILayout.Space(8);
+        GUILayout.Label("현재 네임스페이스에 포함된 타입만 데이터 타입 선택에 노출됩니다.", EditorStyles.helpBox);
     }
 }
