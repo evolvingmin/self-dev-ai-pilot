@@ -1,4 +1,4 @@
-namespace ToyProject.Data
+namespace ToyProject
 {
     using System;
     using System.Collections.Generic;

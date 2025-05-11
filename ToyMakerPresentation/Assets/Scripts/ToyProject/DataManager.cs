@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 using System.Text;
 using System.Linq;
 
-namespace ToyProject.Data
+namespace ToyProject
 {
     public class DataManager
     {

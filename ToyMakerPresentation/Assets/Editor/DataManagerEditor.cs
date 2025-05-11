@@ -5,7 +5,7 @@ using UnityEngine;
 using System.Linq;
 using Newtonsoft.Json;
 using System.Collections.Generic;
-using ToyProject.Data;
+using ToyProject;
 
 public class DataManagerEditor : EditorWindow
 {
@@ -232,11 +232,20 @@ public class DataManagerEditor : EditorWindow
         state.scrollPosition = GUILayout.BeginScrollView(state.scrollPosition, GUILayout.Height(320));
         GUILayout.BeginVertical();
         GUILayout.BeginHorizontal();
+        var keysToRemove = new List<int>();
         foreach (var entry in filteredData.ToList())
         {
             GUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Width(220), GUILayout.Height(100));
             GUILayout.Label($"ID: {entry.Key}", EditorStyles.boldLabel);
             DrawEntryFields(entry, state);
+            GUILayout.Space(4);
+            // 삭제 버튼 추가
+            GUI.backgroundColor = new Color(1f, 0.4f, 0.4f, 1f);
+            if (GUILayout.Button("Delete", GUILayout.Width(80)))
+            {
+                keysToRemove.Add(entry.Key);
+            }
+            GUI.backgroundColor = Color.white;
             GUILayout.EndVertical();
             cardCount++;
             if (cardCount % cardsPerRow == 0)
@@ -248,6 +257,16 @@ public class DataManagerEditor : EditorWindow
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
         GUILayout.EndScrollView();
+        // 실제 삭제 처리
+        if (keysToRemove.Count > 0)
+        {
+            foreach (var key in keysToRemove)
+            {
+                state.currentData.Remove(key);
+            }
+            // 삭제 후 바로 저장
+            SaveData();
+        }
     }
 
     private IEnumerable<KeyValuePair<int, object>> FilterDataBySearchQuery(EditorState state)
