@@ -4,6 +4,16 @@
 
 This project is an experimental journey into developing a game prototype using cutting-edge AI tools like Copilot. The focus is on accelerating development, maximizing individual capabilities, and bringing creative ideas to life. Through this, the goal is to objectively assess my current development skills and explore how far I can go by collaborating with AI.
 
+## 작업 공간 에디터 주요 기능
+
+- 탭 기반 UI로 작업 관리, 로그 뷰어, 통계, 설정 등 다양한 기능을 한 곳에서 제공합니다.
+- 캘린더(월/주 단위)에서 날짜를 선택해 해당 날짜의 작업 로그를 바로 확인할 수 있습니다.
+- 로그 뷰어에서 작업 내역을 효율적으로 관리하고 검색할 수 있습니다.
+- 직관적이고 현대적인 UX로 작업 흐름이 간편합니다.
+- 향후 기능 확장과 유지보수에 용이하도록 설계되었습니다.
+
+---
+
 ## JSON 데이터 에디터
 
 이 프로젝트에는 JSON 데이터를 편집할 수 있는 강력한 에디터가 포함되어 있습니다. 이 에디터는 Unity 환경에서 동작하며, 다음과 같은 기능을 제공합니다:
